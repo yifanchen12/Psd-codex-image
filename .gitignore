@@ -1,0 +1,14 @@
+__pycache__/
+*.py[cod]
+.env
+.env.*
+!.env.example
+*.psd
+*.psb
+*.png
+*.jpg
+*.jpeg
+*.webp
+!examples/assets/background.png
+.DS_Store
+Thumbs.db
