@@ -101,7 +101,9 @@ def build_psd(width, height, layers, output, preview=None):
         composite.convert("RGB").save(preview)
 
     records, channel_data = [], []
-    for layer in reversed(layers):  # PSD layer records are stored top-to-bottom.
+    # Keep manifest order (bottom-to-top) so Photoshop stacks the background
+    # below artwork and copy layers when it reads the records.
+    for layer in layers:
         image = layer["image"]
         bbox = image.getbbox() or (0, 0, 1, 1)
         cropped = image.crop(bbox)
@@ -115,8 +117,8 @@ def build_psd(width, height, layers, output, preview=None):
         unicode_data = u32(len(unicode_raw) // 2) + unicode_raw + b"\0\0"
         unicode_name = b"8BIMluni" + u32(len(unicode_data)) + unicode_data
         extra = u32(0) + u32(0) + name + unicode_name
-        # Layer flag bit 1 marks the layer visible; bit 3 is required by PSD 5+.
-        records.append(b"8BIMnorm" + bytes([255, 0, 10, 0]) + u32(len(extra)) + extra)
+        # Visibility bit 1 is clear for visible layers; bit 3 is required by PSD 5+.
+        records.append(b"8BIMnorm" + bytes([255, 0, 8, 0]) + u32(len(extra)) + extra)
         channels = cropped.split()
         channel_data.append(s16(0) + channels[3].tobytes())
         for channel in channels[:3]:
@@ -166,7 +168,7 @@ def validate_psd(path, width, height, expected_layers):
             record_pos += 4
             lengths.append(length)
         assert data[record_pos:record_pos + 8] == b"8BIMnorm"
-        assert data[record_pos + 10] & 2  # visible
+        assert not (data[record_pos + 10] & 2)  # bit 1 set means hidden
         record_pos += 12
         extra_len = struct.unpack_from(">I", data, record_pos)[0]
         extra_start = record_pos + 4

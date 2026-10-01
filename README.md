@@ -15,7 +15,8 @@
 1. 从需求中确定画布、风格、配色、焦点元素和准确文案。
 2. 将背景、主体、装饰、标识占位和文案规划为独立图层；每个独立视觉素材分别生成并审核。
 3. 不让图像模型生成必须准确的名称、标语、日期或校徽。文案使用本机字体排版；校徽等标识只使用用户提供或经核验的官方素材，没有素材时保留占位层。
-4. 用随附脚本构建 RGB、8-bit PSD 和扁平预览图，并检查尺寸、图层数、通道结构和 PSD 合并图。
+4. 用随附脚本构建 RGB、8-bit PSD 和扁平预览图，并检查尺寸、图层数、可见性标志、通道结构和 PSD 合并图。
+5. 若本次 Codex 会话能控制 Photoshop，则在 Photoshop 中实际打开交付 PSD，检查画面、图层眼睛状态和图层内容，并在 Photoshop 修改后保存、重开确认。只检测到已安装程序或通过文件结构检查，不算 Photoshop 打开验证。
 
 ### 安装
 
@@ -53,16 +54,20 @@ python .\scripts\build_psd.py `
   "canvas": [640, 360],
   "layers": [
     {"name": "Background", "file": "assets/background.png", "x": 0, "y": 0},
-    {"name": "Headline", "text": "Editable headline", "x": 190, "y": 130,
+    {"name": "Headline", "text": "Sample headline", "x": 190, "y": 130,
      "font_size": 48,
      "color": "#163A70", "align": "center"}
   ]
 }
 ```
 
-### 格式边界
+### 文字编辑与格式边界
 
-脚本输出标准 RGB、8-bit、带独立像素图层的 PSD。文本层默认是透明像素图层：在 Photoshop 中可移动、隐藏、删除或替换，但不能用文字工具直接编辑原有字形。若当前环境能够控制 Photoshop，skill 会优先尝试原生文字层；无法连接时会明确说明这一限制。该简易写出器不创建矢量形状、智能对象、图层蒙版或 CMYK 文档。
+脚本把清单中的 `text` 渲染成透明像素图层。它们可以在 Photoshop 中移动、隐藏、删除或替换，但不能用文字工具修改原有文字；应称为“文字像素层”，不能笼统声称文案可编辑。
+
+如果需求要求在 Photoshop 里直接改字，skill 会在可用的 Photoshop 会话中，为每段准确文案创建独立的原生文字图层，并检查文字、图层及重开结果。Photoshop 24.2 及以上支持 `Document.createTextLayer`；UXP 脚本使用 `.psjs` 文件，可通过 Photoshop 的“文件 > 脚本 > 浏览”运行。详见 [Adobe UXP 脚本指南](https://developer.adobe.com/photoshop/uxp/scripting/) 和 [原生文字图层选项](https://developer.adobe.com/photoshop/uxp/ps_reference/objects/createoptions/textlayercreateoptions/)。机器上的字体和 Photoshop 文字度量可能与预览图不同，须检查 Photoshop 中的实际排版。
+
+如果当前会话无法控制 Photoshop，就交付有独立文字像素层的 PSD 和准确文案清单，并明确告知文字不能用文字工具直接改。写出器不创建矢量形状、智能对象、图层蒙版或 CMYK 文档。
 
 ### 许可与安全
 
@@ -79,7 +84,8 @@ python .\scripts\build_psd.py `
 1. Identify canvas, style, palette, focal elements, and exact copy from the brief.
 2. Plan background, subject, decorations, logo placeholders, and copy as independent layers. Generate and review each distinct visual asset separately.
 3. Never ask an image model to render text that must be exact (names, slogans, dates, or official marks). Typeset copy locally. Use only user-provided or verified official logo assets; otherwise keep a clearly named placeholder.
-4. Build a standard RGB, 8-bit layered PSD and flattened preview with the bundled script. Check dimensions, layer count, channel structure, and the merged PSD image.
+4. Build a standard RGB, 8-bit layered PSD and flattened preview with the bundled script. Check dimensions, layer count, visibility flags, channel structure, and the merged PSD image.
+5. When Photoshop can be controlled in the current session, open the exact deliverable there and inspect the visible artwork and layer visibility in the stack. Reopen the saved document after Photoshop-side edits. An installed application or a binary structure check alone does not verify Photoshop compatibility.
 
 ### Installation
 
@@ -102,9 +108,11 @@ python scripts/build_psd.py --manifest examples/layers.example.json \
 
 Manifest layers are ordered bottom-to-top. Image layers use `file`; copy layers use `text`. Coordinates are top-left pixel coordinates. Relative asset paths are resolved from the manifest directory. See the Chinese example above and `examples/layers.example.json` for the complete schema.
 
-### Format limits
+### Text editing and format limits
 
-The bundled writer creates standard RGB, 8-bit PSDs with independent raster layers. Text is rendered to transparent pixel layers by default. In Photoshop those layers can be moved, hidden, deleted, or replaced, but their glyphs are not editable with the Type tool. If Photoshop automation is available, the skill prefers native type layers; if not, it discloses the raster-text fallback. The minimal writer does not create vector shape layers, Smart Objects, layer masks, or CMYK documents.
+The bundled writer renders manifest `text` entries into independent transparent pixel layers. In Photoshop those layers can be moved, hidden, deleted, or replaced, but their words cannot be changed with the Type tool. Call them raster text layers.
+
+When the user needs direct text editing in Photoshop, create a separate native Type layer for each exact text block in a controllable Photoshop session, then check the displayed copy, layer types, and saved/reopened PSD. Hide or remove the matching raster copy layer to prevent duplicate text. Photoshop 24.2 and later provide `Document.createTextLayer`; UXP scripts use the `.psjs` extension and can run through **File > Scripts > Browse**. See [Adobe's UXP scripting guide](https://developer.adobe.com/photoshop/uxp/scripting/) and [text layer creation options](https://developer.adobe.com/photoshop/uxp/ps_reference/objects/createoptions/textlayercreateoptions/). Fonts and text metrics may change placement from the Pillow preview, so inspect Photoshop's rendering. If Photoshop cannot be controlled in the current session, disclose that text is rasterized and provide the exact copy in the manifest for rerendering. The minimal writer does not create vector shape layers, Smart Objects, layer masks, or CMYK documents.
 
 ### License and security
 
